@@ -226,20 +226,24 @@ const Index = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
+            className="h-full"
           >
-            <div className="glass-strong rounded-2xl p-6 h-full">
+            <div className="glass-strong rounded-2xl p-6 h-full min-h-[500px] flex flex-col">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-primary" />
-                Generated Code
+                Generated Website
               </h2>
               
               {generatedCode ? (
-                <CodePreview code={generatedCode} language="html" />
+                <div className="flex-1">
+                  <CodePreview code={generatedCode} language="html" />
+                </div>
               ) : (
-                <div className="h-80 flex items-center justify-center border border-dashed border-border rounded-xl bg-muted/20">
+                <div className="flex-1 flex items-center justify-center border border-dashed border-border rounded-xl bg-muted/20">
                   <div className="text-center text-muted-foreground">
                     <Code2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p>Your generated code will appear here</p>
+                    <p>Your generated website will appear here</p>
+                    <p className="text-xs mt-2 opacity-70">Preview & Code tabs available</p>
                   </div>
                 </div>
               )}
