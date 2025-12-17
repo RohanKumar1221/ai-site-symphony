@@ -34,7 +34,7 @@ export const useWebsiteGenerator = () => {
     error: null,
   });
 
-  const generateWebsite = useCallback(async (prompt: string) => {
+  const generateWebsite = useCallback(async (prompt: string, referenceDescriptions?: string[]) => {
     setState({
       isGenerating: true,
       currentPhase: "discussing",
@@ -46,7 +46,10 @@ export const useWebsiteGenerator = () => {
 
     try {
       const response = await supabase.functions.invoke("generate-website", {
-        body: { prompt },
+        body: { 
+          prompt,
+          references: referenceDescriptions || []
+        },
       });
 
       if (response.error) {
