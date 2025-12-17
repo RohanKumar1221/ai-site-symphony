@@ -15,48 +15,48 @@ interface AgentRole {
 const AGENTS: AgentRole[] = [
   {
     name: "Architect",
-    systemPrompt: `You are the Architect AI agent. Your role is to analyze the website requirements and define the overall structure, sections, and layout. Focus on:
+    systemPrompt: `You are a web architect. Analyze requirements and define structure, sections, and layout. Focus on:
 - Page structure and hierarchy
 - Component breakdown
 - Information architecture
-- User flow considerations
-Provide a brief, actionable response (2-3 sentences) about the structure you recommend.`,
+- User flow
+Provide a brief response (2-3 sentences) about the structure you recommend.`,
   },
   {
     name: "Designer",
-    systemPrompt: `You are the Designer AI agent. Your role is to define the visual direction based on the Architect's structure. Focus on:
+    systemPrompt: `You are a UI/UX designer. Define visual direction based on the structure. Focus on:
 - Color palette and typography
 - Visual hierarchy
 - Spacing and layout principles
-- UI component styles
-Provide a brief, actionable response (2-3 sentences) about the design direction.`,
+- Modern UI component styles
+Provide a brief response (2-3 sentences) about the design direction.`,
   },
   {
     name: "Frontend",
-    systemPrompt: `You are the Frontend AI agent. Your role is to recommend the best implementation approach. Focus on:
+    systemPrompt: `You are a frontend developer. Recommend the best implementation approach. Focus on:
 - HTML structure and semantic markup
-- CSS framework recommendations
+- CSS styling approach
 - Component patterns
-- Responsive design approach
-Provide a brief, actionable response (2-3 sentences) about implementation.`,
+- Responsive design
+Provide a brief response (2-3 sentences) about implementation.`,
   },
   {
     name: "Backend",
-    systemPrompt: `You are the Backend AI agent. Your role is to identify any backend requirements. Focus on:
+    systemPrompt: `You are a backend developer. Identify any backend requirements. Focus on:
 - Form handling needs
 - Data storage requirements
 - API integrations needed
 - Security considerations
-Provide a brief, actionable response (2-3 sentences) about backend needs.`,
+Provide a brief response (2-3 sentences) about backend needs.`,
   },
   {
     name: "Optimizer",
-    systemPrompt: `You are the Optimizer AI agent. Your role is to ensure the final result is optimal. Focus on:
+    systemPrompt: `You are a performance optimizer. Ensure the final result is optimal. Focus on:
 - Performance optimizations
 - SEO considerations
 - Accessibility requirements
 - Best practices
-Provide a brief, actionable response (2-3 sentences) about optimizations.`,
+Provide a brief response (2-3 sentences) about optimizations.`,
   },
 ];
 
@@ -87,26 +87,31 @@ async function callAI(systemPrompt: string, userMessage: string): Promise<string
   return data.choices?.[0]?.message?.content || "";
 }
 
-async function generateFinalCode(prompt: string, discussion: { agent: string; message: string }[]): Promise<string> {
+async function generateFinalCode(prompt: string, discussion: { agent: string; message: string }[], references: string[]): Promise<string> {
   const discussionSummary = discussion.map((d) => `${d.agent}: ${d.message}`).join("\n");
+  const referenceInfo = references.length > 0 ? `\n\nREFERENCE FILES PROVIDED:\n${references.join("\n")}` : "";
 
-  const codePrompt = `Based on the following user request and agent discussion, generate a complete, professional HTML website with embedded CSS and JavaScript.
+  const codePrompt = `Based on the following user request and team discussion, generate a complete, professional HTML website with embedded CSS and JavaScript.
 
-USER REQUEST: ${prompt}
+USER REQUEST: ${prompt}${referenceInfo}
 
-AGENT DISCUSSION:
+TEAM DISCUSSION:
 ${discussionSummary}
 
-Generate a complete, single-file HTML website that:
-1. Is fully responsive and mobile-friendly
-2. Has modern, professional styling with CSS variables
-3. Includes smooth animations and transitions
-4. Has all sections properly structured
-5. Uses semantic HTML5
-6. Includes a beautiful color scheme
-7. Has proper typography hierarchy
+CRITICAL REQUIREMENTS:
+1. Generate a complete, single-file HTML website
+2. Must be fully responsive and mobile-friendly
+3. Use modern, professional styling with CSS variables
+4. Include smooth animations and transitions
+5. Use semantic HTML5 elements
+6. Include a beautiful, cohesive color scheme
+7. Have proper typography hierarchy
+8. DO NOT include any comments mentioning AI, generated, or any tool names
+9. DO NOT include any meta tags or comments about how the code was created
+10. Make it look like hand-crafted professional code
+11. Use realistic company/brand names if needed (not placeholder text)
 
-Return ONLY the HTML code, no explanations. Start with <!DOCTYPE html> and include everything in one file.`;
+Return ONLY the clean HTML code starting with <!DOCTYPE html>. No explanations, no markdown, no comments about generation.`;
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -119,7 +124,7 @@ Return ONLY the HTML code, no explanations. Start with <!DOCTYPE html> and inclu
       messages: [
         {
           role: "system",
-          content: "You are an expert web developer. Generate complete, production-ready HTML/CSS/JS code. Return only code, no markdown formatting or explanations.",
+          content: "You are an expert web developer creating production-ready websites. Generate clean, professional HTML/CSS/JS code. Never include comments about AI, generation tools, or how the code was made. The code should look like it was written by a professional developer. Return only code, no markdown formatting.",
         },
         { role: "user", content: codePrompt },
       ],
@@ -136,8 +141,11 @@ Return ONLY the HTML code, no explanations. Start with <!DOCTYPE html> and inclu
   const data = await response.json();
   let code = data.choices?.[0]?.message?.content || "";
   
-  // Clean up code if wrapped in markdown
+  // Clean up code - remove markdown and any AI-related comments
   code = code.replace(/```html\n?/g, "").replace(/```\n?/g, "").trim();
+  code = code.replace(/<!--.*?(AI|Generated|Lovable|GPT|Claude|Gemini|automated|auto-generated).*?-->/gi, "");
+  code = code.replace(/\/\*.*?(AI|Generated|Lovable|GPT|Claude|Gemini|automated|auto-generated).*?\*\//gi, "");
+  code = code.replace(/\/\/.*?(AI|Generated|Lovable|GPT|Claude|Gemini|automated|auto-generated).*$/gmi, "");
   
   return code;
 }
@@ -148,7 +156,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, references = [] } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -158,25 +166,32 @@ serve(async (req) => {
     }
 
     console.log("Starting website generation for prompt:", prompt);
+    if (references.length > 0) {
+      console.log("References provided:", references);
+    }
 
     // Run agent discussions
     const discussion: { agent: string; message: string }[] = [];
     let conversationContext = `Website Request: ${prompt}\n\n`;
+    
+    if (references.length > 0) {
+      conversationContext += `Reference materials provided: ${references.join(", ")}\n\n`;
+    }
 
     for (const agent of AGENTS) {
       console.log(`Getting response from ${agent.name}...`);
       
-      const agentPrompt = `${conversationContext}\nBased on the request and any previous agent inputs, provide your ${agent.name} perspective.`;
+      const agentPrompt = `${conversationContext}\nBased on the request and any previous team inputs, provide your ${agent.name} perspective.`;
       const response = await callAI(agent.systemPrompt, agentPrompt);
       
       discussion.push({ agent: agent.name, message: response });
       conversationContext += `${agent.name}: ${response}\n\n`;
     }
 
-    console.log("Agent discussion complete, generating code...");
+    console.log("Team discussion complete, generating code...");
 
     // Generate final code
-    const code = await generateFinalCode(prompt, discussion);
+    const code = await generateFinalCode(prompt, discussion, references);
 
     console.log("Website generation complete");
 
